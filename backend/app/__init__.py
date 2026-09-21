@@ -14,4 +14,6 @@ def create_app():
     jwt.init_app(app)
     ma.init_app(app)
 
+    import app.models  
+
     return app
