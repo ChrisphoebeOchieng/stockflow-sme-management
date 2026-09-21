@@ -2,6 +2,7 @@ from flask import Flask
 
 from app.config import Config
 from app.extensions import db, migrate, jwt, ma
+from app.models import Role  # Import your models here
 
 
 def create_app():
@@ -14,6 +15,6 @@ def create_app():
     jwt.init_app(app)
     ma.init_app(app)
 
-    import app.models  
+    
 
     return app
