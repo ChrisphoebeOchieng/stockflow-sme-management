@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 
-from app.auth.service import register_user
+from app.auth.service import login_user, register_user
 
 
 # Groups authentication-related endpoints under the /auth URL prefix.
@@ -56,3 +56,50 @@ def register():
         return jsonify({
             "error": str(error)
         }), 409
+
+
+#  Handles login requests for existing users.
+@auth_bp.route("/login", methods=["POST"])
+def login():
+    # Read the JSON body sent by the client.
+    data = request.get_json()
+
+    # Reject requests that do not contain a JSON body.
+    if not data:
+        return jsonify({
+            "error": "Request body must contain JSON data."
+        }), 400
+
+    # Extract the login credentials from the request.
+    email = data.get("email")
+    password = data.get("password")
+
+    # Make sure both credentials were provided.
+    if not email or not password:
+        return jsonify({
+            "error": "email and password are required."
+        }), 400
+
+    try:
+        # The service verifies the credentials and returns the user.
+        user = login_user(
+            email=email,
+            password=password,
+        )
+
+        return jsonify({
+            "message": "Login successful.",
+            "user": {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "role": user.role.name,
+            },
+        }), 200
+
+    except ValueError as error:
+        # Convert authentication errors into a client-friendly response.
+        return jsonify({
+            "error": str(error)
+        }), 401

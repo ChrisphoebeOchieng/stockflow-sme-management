@@ -1,6 +1,6 @@
 from app.extensions import db 
 from app.models import Role, User
-from app.auth.security import hash_password
+from app.auth.security import hash_password, verify_password
 
 
 def register_user(first_name, last_name, email, password, role_name="Staff"):
@@ -29,4 +29,19 @@ def register_user(first_name, last_name, email, password, role_name="Staff"):
     db.session.commit()
 
 
+    return user
+
+def login_user (email, password):
+    # Find the account using email provided during login.
+    user = User.query.filter_by(email=email).first()
+
+    # Use the same error message for both invalid email and password 
+    # to avoind revealing whether the email exists in the system.
+    if not user or not verify_password(password, user.password_hash):
+        raise ValueError("Invalid email or password.")
+    
+    # Prevent inactive accounts from signing into the system.
+    if not user.is_active:
+        raise ValueError("This account is inactive.")
+    
     return user
