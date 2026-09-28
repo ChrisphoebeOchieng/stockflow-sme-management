@@ -1,4 +1,9 @@
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import (
+    create_access_token,  
+    get_jwt_identity,
+    jwt_required,
+    )                 # Creates JWT access tokens
 
 from app.auth.service import login_user, register_user
 
@@ -58,7 +63,7 @@ def register():
         }), 409
 
 
-#  Handles login requests for existing users.
+# Handles login requests for existing users.
 @auth_bp.route("/login", methods=["POST"])
 def login():
     # Read the JSON body sent by the client.
@@ -87,8 +92,19 @@ def login():
             password=password,
         )
 
+        # NEW: Create a signed JWT for the authenticated user.
+        # The role is included as a claim so protected endpoints can
+        # enforce role-based access later.
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={
+                "role": user.role.name,
+            },
+        )
+
         return jsonify({
             "message": "Login successful.",
+            "access_token": access_token,
             "user": {
                 "id": user.id,
                 "first_name": user.first_name,
@@ -103,3 +119,32 @@ def login():
         return jsonify({
             "error": str(error)
         }), 401
+    
+# proteceted endpoint used to retrieve the currently authenticated user. 
+@auth_bp.route("/me", methods=["GET"])    
+@jwt_required()
+def get_current_user():
+    # Read the user ID stored in the JWT identity. 
+    user_id = get_jwt_identity()
+
+    # Fetch the user from the database using the ID.
+    from app.models import User
+
+    user = User.query.get(int(user_id))
+
+    # If the user does not exist (e.g., deleted), return an error.
+    if not user:
+        return jsonify({
+            "error": "User not found."
+        }), 404
+    
+    return jsonify({
+        "user": {
+            "id": user.id,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "role": user.role.name,
+            "is_active": user.is_active,
+        },
+    }), 200
