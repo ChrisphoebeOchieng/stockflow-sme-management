@@ -1,7 +1,8 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request  
 from flask_jwt_extended import jwt_required
 
 from app.auth.security import role_required
+from app.auth.service import register_user
 from app.models import User
 
 
@@ -57,3 +58,63 @@ def get_user(user_id):
             "created_at": user.created_at.isoformat(),
         }
     }), 200
+
+
+# ADDED: Allows an Administrator to create a new user account.
+@users_bp.route("", methods=["POST"])  
+@jwt_required() 
+@role_required("Administrator")  
+def create_user():  
+    # Read the JSON body sent by the client.
+    data = request.get_json()  
+
+    # Reject requests that do not contain a JSON body.
+    if not data:  
+        return jsonify({  
+            "error": "Request body must contain JSON data."  
+        }), 400  
+
+    # Extract the required user information.
+    first_name = data.get("first_name")  
+    last_name = data.get("last_name")  
+    email = data.get("email")  
+    password = data.get("password")  
+    role_name = data.get("role", "Staff")  
+
+    # Make sure all required fields were provided.
+    if not all([first_name, last_name, email, password]):  
+        return jsonify({  
+            "error": (
+                "first_name, last_name, email, and password "
+                "are required."
+            ) 
+        }), 400  
+
+    try:
+        # Reuse the registration service so password hashing,
+        # duplicate email checks, and role lookup stay in one place.
+        user = register_user(  
+            first_name=first_name,  
+            last_name=last_name,  
+            email=email,  
+            password=password,  
+            role_name=role_name,  
+        )
+
+        return jsonify({  
+            "message": "User created successfully.",  
+            "user": {  
+                "id": user.id,  
+                "first_name": user.first_name,  
+                "last_name": user.last_name,  
+                "email": user.email,  
+                "role": user.role.name,  
+                "is_active": user.is_active,  
+            },  
+        }), 201  
+
+    except ValueError as error:  
+        # Convert expected user creation errors into a client-friendly response.
+        return jsonify({  
+            "error": str(error)  
+        }), 409  
