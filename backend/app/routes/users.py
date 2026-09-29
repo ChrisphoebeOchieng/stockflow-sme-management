@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
 from app.auth.security import role_required
-from app.auth.service import register_user
+from app.auth.service import register_user, update_user
 from app.models import User
 
 
@@ -118,3 +118,47 @@ def create_user():
         return jsonify({  
             "error": str(error)  
         }), 409  
+    
+#  Allows an Administrator to update an existing user.
+@users_bp.route("/<int:user_id>", methods=["PATCH"])
+@jwt_required()
+@role_required("Administrator")
+def edit_user(user_id):
+    # Read the JSON body sent by the client.
+    data = request.get_json()
+
+    # Reject requests that do not contain a JSON body.
+    if not data:
+        return jsonify({
+            "error": "Request body must contain JSON data."
+        }), 400
+
+    try:
+        # Update only the fields supplied in the request.
+        user = update_user(
+            user_id=user_id,
+            first_name=data.get("first_name"),
+            last_name=data.get("last_name"),
+            email=data.get("email"),
+            role_name=data.get("role"),
+            is_active=data.get("is_active"),
+        )
+
+        return jsonify({
+            "message": "User updated successfully.",
+            "user": {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "role": user.role.name,
+                "is_active": user.is_active,
+                "created_at": user.created_at.isoformat(),
+            },
+        }), 200
+
+    except ValueError as error:
+        # Convert expected update errors into a client-friendly response.
+        return jsonify({
+            "error": str(error)
+        }), 400    
